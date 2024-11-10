@@ -1,6 +1,6 @@
 from AES import AES, os
 
-## Create an AES instance with a 128-bit key
+# Create an AES instance with a 128-bit key
 aes = AES(key_size=128)
 
 # Enable debug mode if you want to see intermediate states

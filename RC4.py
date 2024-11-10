@@ -20,7 +20,7 @@ def rc4_pseudo_random_generation(S, plaintext_length):
     return keystream
 
 def rc4_encrypt(plaintext, key):
-    """Encrypt plaintext using RC4."""
+    """Encrypt or decrypt plaintext using RC4 (symmetric)."""
     S = rc4_key_scheduling(key)
     keystream = rc4_pseudo_random_generation(S, len(plaintext))
     ciphertext = bytes([plaintext[i] ^ keystream[i] for i in range(len(plaintext))])
