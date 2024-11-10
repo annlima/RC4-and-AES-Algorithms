@@ -30,7 +30,7 @@ Ensure you have Python installed on your system. This project requires no additi
 1. Clone the repository:
 
    ```bash
-   git clone https://github.com/annlima/aes-python-encryption.git](https://github.com/annlima/H4_Cybersecurity.git)
+   git clone https://github.com/annlima/H4_Cybersecurity.git
    cd H4_Cybersecurity
    ```
 
