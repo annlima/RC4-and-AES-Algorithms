@@ -1,22 +1,34 @@
-from AES import AES, os
+import os
+from AES import AES
+from RC4 import rc4_encrypt
 
-# Create an AES instance with a 128-bit key
-aes = AES(key_size=128)
+def main():
+    # Initialize AES with a 128-bit key
+    aes = AES(key_size=128)
+    aes.set_debug(True)  # Enable debug output
 
-# Enable debug mode if you want to see intermediate states
-aes.set_debug(True)
+    # Define plaintext and key
+    plaintext = "This is a secret message."
+    key = b"mysecretkey12345"  # 16 bytes for AES-128
 
-# Generate a random key (or you can define your own)
-key = aes.generate_key(key_size=128)
-print(f"Generated Key (hex): {key.hex()}")
+    # Ensure the key length matches the AES key size
+    if len(key) * 8 != aes.key_size:
+        raise ValueError(f"Key must be {aes.key_size // 8} bytes for AES-{aes.key_size}.")
 
-# Define the plaintext message you want to encrypt
-plaintext = "Hello, AES encryption!"
+    # Encrypt the plaintext
+    ciphertext = aes.encrypt(plaintext, key)
+    print(f"Ciphertext (hex): {ciphertext.hex()}")
 
-# Encrypt the plaintext
-ciphertext = aes.encrypt(plaintext, key)
-print(f"Ciphertext (hex): {ciphertext.hex()}")
+    # Decrypt the ciphertext
+    decrypted_plaintext = aes.decrypt(ciphertext, key)
+    print(f"Decrypted plaintext: {decrypted_plaintext.decode('utf-8')}")
 
-# Decrypt the ciphertext
-decrypted_text = aes.decrypt(ciphertext, key)
-print(f"Decrypted Text: {decrypted_text.decode('utf-8')}")
+    plaintext = b"This is a secret message."
+    key = b"myrc4secretkey"
+    ciphertext = rc4_encrypt(plaintext, key)
+    print(f"RC4 Ciphertext (hex): {ciphertext.hex()}")
+    decrypted = rc4_encrypt(ciphertext, key)  # RC4 is symmetric
+    print(f"RC4 Decrypted plaintext: {decrypted.decode('utf-8')}")
+
+if __name__ == "__main__":
+    main()

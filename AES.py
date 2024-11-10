@@ -127,32 +127,19 @@ class AES:
             raise
 
     # PKCS#7 padding and unpadding functions
+
     def _pad_pkcs7(self, data: bytes) -> bytes:
-        """Add PKCS#7 padding."""
         padding_length = 16 - (len(data) % 16)
         padding = bytes([padding_length] * padding_length)
-        padded_data = data + padding
-        self._debug_print(f"Adding {padding_length} bytes of padding: {padding.hex()}")
-        return padded_data
+        return data + padding
 
-    @staticmethod
-    def _unpad_pkcs7(data: bytes) -> bytes:
-        """Remove PKCS#7 padding with enhanced validation."""
-        if not data:
-            raise ValueError("Empty data")
-
+    def _unpad_pkcs7(self, data: bytes) -> bytes:
         padding_length = data[-1]
-
-        if padding_length == 0 or padding_length > 16:
-            raise ValueError(f"Invalid padding length: {padding_length}")
-
-        if len(data) < padding_length:
-            raise ValueError("Data shorter than padding length")
-
-        padding = data[-padding_length:]
-        if not all(x == padding_length for x in padding):
+        if padding_length < 1 or padding_length > 16:
+            raise ValueError("Invalid padding length")
+        # Verificar que los bytes finales coincidan con el valor de padding
+        if data[-padding_length:] != bytes([padding_length] * padding_length):
             raise ValueError("Inconsistent padding bytes")
-
         return data[:-padding_length]
 
     # Encrypting a single block function
