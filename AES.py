@@ -46,6 +46,11 @@ RCON = [
 ]
 
 
+def hex_matrix(matrix):
+    """Convert a 4x4 matrix to hexadecimal string representation."""
+    return [[f"{byte:02x}" for byte in row] for row in matrix]
+
+
 class AES:
     def __init__(self, key_size: int = 128):
         """Initialize AES with key size (128, 192, or 256 bits)."""
@@ -56,78 +61,149 @@ class AES:
         self.S_BOX = S_BOX
         self.INV_S_BOX = INV_S_BOX
         self.RCON = RCON
+        self.debug = False  # Add debug flag
+
+    def set_debug(self, debug: bool):
+        """Enable or disable debug output."""
+        self.debug = debug
+
+    def _debug_print(self, *args, **kwargs):
+        """Print debug information if debug mode is enabled."""
+        if self.debug:
+            print(*args, **kwargs)
 
     def encrypt(self, plaintext: Union[bytes, str], key: Union[bytes, str]) -> bytes:
-        """Encrypt data using AES."""
+        # Ensure plaintext is bytes
         if isinstance(plaintext, str):
-            plaintext = plaintext.encode()
-        if isinstance(key, str):
-            key = key.encode()
+            plaintext = plaintext.encode('utf-8')
 
+        # Ensure key is in correct bytes format
+        if isinstance(key, str):
+            key = bytes.fromhex(key) if all(c in '0123456789abcdefABCDEF' for c in key) else key.encode('utf-8')
+
+        # Validate key length
         if len(key) * 8 != self.key_size:
             raise ValueError(f"Key must be {self.key_size} bits")
 
-        # Padding
+        # Pad the plaintext
         padded_text = self._pad_pkcs7(plaintext)
-        blocks = [padded_text[i:i + 16] for i in range(0, len(padded_text), 16)]
+        self._debug_print(f"Padded text (hex): {padded_text.hex()}")
 
+        # Encrypt each block
+        blocks = [padded_text[i:i + 16] for i in range(0, len(padded_text), 16)]
         ciphertext = b''
         for block in blocks:
-            ciphertext += self._encrypt_block(block, key)
+            encrypted_block = self._encrypt_block(block, key)
+            self._debug_print(f"Encrypted block (hex): {encrypted_block.hex()}")
+            ciphertext += encrypted_block
 
         return ciphertext
 
     def decrypt(self, ciphertext: bytes, key: Union[bytes, str]) -> bytes:
-        """Decrypt AES-encrypted data."""
+        # Convert key to bytes if necessary
         if isinstance(key, str):
-            key = key.encode()
+            key = bytes.fromhex(key) if all(c in '0123456789abcdefABCDEF' for c in key) else key.encode('utf-8')
 
-        if len(key) * 8 != self.key_size:
-            raise ValueError(f"Key must be {self.key_size} bits")
+        # Validate ciphertext length
+        if len(ciphertext) % 16 != 0:
+            raise ValueError("Ciphertext length must be a multiple of 16 bytes")
 
+        # Decrypt each block and assemble plaintext
         blocks = [ciphertext[i:i + 16] for i in range(0, len(ciphertext), 16)]
         plaintext = b''
+
         for block in blocks:
-            plaintext += self._decrypt_block(block, key)
+            decrypted_block = self._decrypt_block(block, key)
+            self._debug_print(f"Decrypted block (hex): {decrypted_block.hex()}")
+            plaintext += decrypted_block
 
-        return self._unpad_pkcs7(plaintext)
+        # Unpad and return plaintext
+        try:
+            unpadded_plaintext = self._unpad_pkcs7(plaintext)
+            self._debug_print(f"Unpadded plaintext (hex): {unpadded_plaintext.hex()}")
+            return unpadded_plaintext
+        except ValueError as e:
+            self._debug_print(f"Padding error: {str(e)}")
+            raise
 
-    @staticmethod
-    def _pad_pkcs7(data: bytes) -> bytes:
+    # PKCS#7 padding and unpadding functions
+    def _pad_pkcs7(self, data: bytes) -> bytes:
+        """Add PKCS#7 padding."""
         padding_length = 16 - (len(data) % 16)
         padding = bytes([padding_length] * padding_length)
-        return data + padding
+        padded_data = data + padding
+        self._debug_print(f"Adding {padding_length} bytes of padding: {padding.hex()}")
+        return padded_data
 
     @staticmethod
     def _unpad_pkcs7(data: bytes) -> bytes:
-        """Remove PKCS#7 padding from the data."""
+        """Remove PKCS#7 padding with enhanced validation."""
+        if not data:
+            raise ValueError("Empty data")
+
         padding_length = data[-1]
-        if padding_length > 16:
-            raise ValueError("Invalid padding length")
-        if data[-padding_length:] != bytes([padding_length]) * padding_length:
-            raise ValueError("Invalid padding bytes")
+
+        if padding_length == 0 or padding_length > 16:
+            raise ValueError(f"Invalid padding length: {padding_length}")
+
+        if len(data) < padding_length:
+            raise ValueError("Data shorter than padding length")
+
+        padding = data[-padding_length:]
+        if not all(x == padding_length for x in padding):
+            raise ValueError("Inconsistent padding bytes")
+
         return data[:-padding_length]
 
+    # Encrypting a single block function
     def _encrypt_block(self, plaintext: bytes, key: bytes) -> bytes:
+        # Initialize the state and expand the key
         state = [[plaintext[i * 4 + j] for j in range(4)] for i in range(4)]
         expanded_key = self.key_expansion(key)
 
-        # Initial round
-        self.add_round_key(state, expanded_key[:4])
-
-        # Main rounds
+        # Perform encryption steps
+        self.add_round_key(state, expanded_key[:4])  # Initial AddRoundKey
         for round in range(1, self.rounds):
             self.sub_bytes(state)
             self.shift_rows(state)
             self.mix_columns(state)
             self.add_round_key(state, expanded_key[round * 4:(round + 1) * 4])
-
         # Final round (no MixColumns)
         self.sub_bytes(state)
         self.shift_rows(state)
         self.add_round_key(state, expanded_key[self.rounds * 4:])
-
         return bytes(state[i][j] for i in range(4) for j in range(4))
+
+    # Decryption block function
+    def _decrypt_block(self, ciphertext: bytes, key: bytes) -> bytes:
+        # Decryption steps
+        state = [[ciphertext[i * 4 + j] for j in range(4)] for i in range(4)]
+        expanded_key = self.key_expansion(key)
+
+        self.add_round_key(state, expanded_key[self.rounds * 4:])
+        for round in range(self.rounds - 1, 0, -1):
+            self._inv_shift_rows(state)
+            self._inv_sub_bytes(state)
+            self.add_round_key(state, expanded_key[round * 4:(round + 1) * 4])
+            self._inv_mix_columns(state)
+
+        self._inv_shift_rows(state)
+        self._inv_sub_bytes(state)
+        self.add_round_key(state, expanded_key[:4])
+        return bytes(state[i][j] for i in range(4) for j in range(4))
+
+    @staticmethod
+    def add_round_key(state, round_key):
+        for i in range(4):
+            for j in range(4):
+                state[i][j] ^= round_key[i][j]
+        print(f"State after AddRoundKey: {hex_matrix(state)}")
+
+    def sub_bytes(self, state):
+        for i in range(4):
+            for j in range(4):
+                byte = state[i][j]
+                state[i][j] = self.S_BOX[byte >> 4][byte & 0x0F]
 
     def key_expansion(self, key: bytes) -> List[List[int]]:
         expanded_key = [list(key[i:i + 4]) for i in range(0, len(key), 4)]
@@ -138,18 +214,6 @@ class AES:
                 temp[0] ^= self.RCON[i // 4 - 1]
             expanded_key.append([expanded_key[i - 4][j] ^ temp[j] for j in range(4)])
         return expanded_key
-
-    @staticmethod
-    def add_round_key(state, round_key):
-        for i in range(4):
-            for j in range(4):
-                state[i][j] ^= round_key[i][j]
-
-    def sub_bytes(self, state):
-        for i in range(4):
-            for j in range(4):
-                byte = state[i][j]
-                state[i][j] = self.S_BOX[byte >> 4][byte & 0x0F]
 
     @staticmethod
     def shift_rows(state):
@@ -164,6 +228,7 @@ class AES:
             state[i][1] = a[0] ^ self.gf_mul(a[1], 2) ^ self.gf_mul(a[2], 3) ^ a[3]
             state[i][2] = a[0] ^ a[1] ^ self.gf_mul(a[2], 2) ^ self.gf_mul(a[3], 3)
             state[i][3] = self.gf_mul(a[0], 3) ^ a[1] ^ a[2] ^ self.gf_mul(a[3], 2)
+        print(f"State after MixColumns: {hex_matrix(state)}")
 
     @staticmethod
     def gf_mul(a, b):
@@ -204,29 +269,6 @@ class AES:
                 0x0B, a[3])
             state[i][3] = self.gf_mul(0x0B, a[0]) ^ self.gf_mul(0x0D, a[1]) ^ self.gf_mul(0x09, a[2]) ^ self.gf_mul(
                 0x0E, a[3])
-
-    def _decrypt_block(self, ciphertext: bytes, key: bytes) -> bytes:
-        """Decrypt a single 16-byte block."""
-        state = [[ciphertext[i * 4 + j] for j in range(4)] for i in range(4)]
-        expanded_key = self.key_expansion(key)
-
-        # Initial round
-        self.add_round_key(state, expanded_key[self.rounds * 4:])
-
-        # Main rounds
-        for round in range(self.rounds - 1, 0, -1):
-            self._inv_shift_rows(state)
-            self._inv_sub_bytes(state)
-            self.add_round_key(state, expanded_key[round * 4:(round + 1) * 4])
-            self._inv_mix_columns(state)
-
-        # Final round
-        self._inv_shift_rows(state)
-        self._inv_sub_bytes(state)
-        self.add_round_key(state, expanded_key[:4])
-
-        # Flatten the state matrix back to bytes
-        return bytes(state[i][j] for i in range(4) for j in range(4))
 
     @staticmethod
     def generate_key(key_size=128):

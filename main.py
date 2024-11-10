@@ -1,25 +1,22 @@
 from AES import AES, os
-from RC4 import rc4_encrypt
-# Instantiate the AES object with 128-bit key size
+
+## Create an AES instance with a 128-bit key
 aes = AES(key_size=128)
 
-# Generate a 128-bit key (16 bytes)
+# Enable debug mode if you want to see intermediate states
+aes.set_debug(True)
+
+# Generate a random key (or you can define your own)
 key = aes.generate_key(key_size=128)
+print(f"Generated Key (hex): {key.hex()}")
 
-# Define an initialization vector (IV) if needed, or use it directly
-iv = os.urandom(16)  # optional if you want to use CBC mode encryption
-
-# Define your plaintext
-plaintext = "This is a secret message"
+# Define the plaintext message you want to encrypt
+plaintext = "Hello, AES encryption!"
 
 # Encrypt the plaintext
 ciphertext = aes.encrypt(plaintext, key)
-print(f"Ciphertext: {ciphertext.hex()}")
+print(f"Ciphertext (hex): {ciphertext.hex()}")
 
 # Decrypt the ciphertext
 decrypted_text = aes.decrypt(ciphertext, key)
-print("Decrypted bytes:", decrypted_text)
-try:
-    print("Decrypted text:", decrypted_text.decode('utf-8'))
-except UnicodeDecodeError:
-    print("The decrypted bytes do not represent valid UTF-8 text.")
+print(f"Decrypted Text: {decrypted_text.decode('utf-8')}")
