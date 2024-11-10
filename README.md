@@ -1,4 +1,4 @@
-# AES Encryption and Decryption in Python
+# AES and RC4 Encryption and Decryption in Python
 
 This repository provides a Python implementation of the Advanced Encryption Standard (AES) for data encryption and decryption. The AES algorithm is widely used for secure data transmission in symmetric key cryptography. This code includes support for 128, 192, and 256-bit keys and implements all essential AES transformations.
 
@@ -69,9 +69,10 @@ print(f"Decrypted plaintext: {decrypted_plaintext.decode('utf-8')}")
 
 ```
 aes-python-encryption/
-├── aes.py             # Main AES implementation
+├── AES.py             # Main AES implementation
+├── RC4.py             # Main RC4 implementation
 ├── README.md          # Project documentation
-└── example.py         # Example usage of AES encryption/decryption
+├── main.py            # Example usage of AES and RC4 encryption/decryption
 ```
 
 ## Features Overview
