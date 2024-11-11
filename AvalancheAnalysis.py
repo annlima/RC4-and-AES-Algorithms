@@ -4,6 +4,46 @@ from typing import Tuple, List
 import RC4
 from AES import AES
 import os
+import pdfplumber
+from fpdf import FPDF
+
+def save_as_txt(file_path, data):
+    """Saves the data as a .txt file."""
+    try:
+        with open(file_path, 'w', encoding='utf-8') as file:
+            file.write(data)
+        print(f"Decrypted data saved as {file_path}")
+    except Exception as e:
+        print(f"An error occurred while saving the .txt file: {e}")
+
+def save_as_pdf(file_path, data):
+    """Saves the data as a .pdf file."""
+    try:
+        pdf = FPDF()
+        pdf.set_auto_page_break(auto=True, margin=15)
+        pdf.add_page()
+        pdf.set_font("Arial", size=12)
+        
+        # Add decrypted data to the PDF, handling line breaks for formatting
+        for line in data.split('\n'):
+            pdf.multi_cell(0, 10, line)
+        
+        pdf.output(file_path)
+        print(f"Decrypted data saved as {file_path}")
+    except Exception as e:
+        print(f"An error occurred while saving the .pdf file: {e}")
+
+def read_pdf_file(file_path):
+    try:
+        with pdfplumber.open(file_path) as pdf:
+            text = ""
+            for page in pdf.pages:
+                text += page.extract_text() + "\n"
+            return text.encode('utf-8')  # Return as bytes
+    except FileNotFoundError:
+        print(f"The file {file_path} was not found.")
+    except Exception as e:
+        print(f"An error occurred: {e}")
 
 # Display decrypted results safely
 def safe_decode(data: bytes) -> str:
@@ -62,22 +102,46 @@ def analyze_files(file1_path: str, file2_path: str, aes_key: bytes, rc4_key: byt
     # Read and pad files
     file1 = read_text_file(file1_path)
     print("Plaintext - File 2: ", file1)
+    """
     file2 = read_text_file(file2_path)
+    print("Plaintext - File 2: ", file2)
+    """
+    file2 = read_pdf_file(file2_path)
     print("Plaintext - File 2: ", file2)
 
     # Encrypt both and decrypt files with AES
     aes_cipher1 = aes.encrypt(file1, aes_key)
     aes_plaintext1 = aes.decrypt(aes_cipher1, aes_key)
 
+    aes_cipher1_str = safe_decode(aes_cipher1)
+    save_as_txt("aes_encryption_f1.txt", aes_cipher1_str)
+    aes_plaintext1_str = safe_decode(aes_plaintext1)
+    save_as_txt("aes_decryption_f1.txt", aes_plaintext1_str)
+
     aes_cipher2 = aes.encrypt(file2, aes_key)
     aes_plaintext2 = aes.decrypt(aes_cipher2, aes_key)
-    
+
+    aes_cipher2_str = safe_decode(aes_cipher2)
+    save_as_pdf("aes_encryption_f2.pdf", aes_cipher2_str)
+    aes_plaintext2_str = safe_decode(aes_plaintext2)
+    save_as_pdf("aes_decryption_f2.pdf", aes_plaintext2_str)
+
     # Encrypt both files with RC4
     rc4_cipher1 = RC4.rc4_encrypt(file1, rc4_key)    
     rc4_plaintext1 = RC4.rc4_encrypt(rc4_cipher1, rc4_key)  # RC4 is symmetric
 
+    rc4_cipher1_str = safe_decode(rc4_cipher1)
+    save_as_txt("rc4_encryption_f1.txt", rc4_cipher1_str)
+    rc4_plaintext1_str = safe_decode(rc4_plaintext1)
+    save_as_txt("rc4_decryption_f1.txt", rc4_plaintext1_str)
+
     rc4_cipher2 = RC4.rc4_encrypt(file2, rc4_key)
     rc4_plaintext2 = RC4.rc4_encrypt(rc4_cipher2, rc4_key)  # RC4 is symmetric
+    
+    rc4_cipher2_str = safe_decode(rc4_cipher2)
+    save_as_pdf("rc4_encryption_f2.pdf", rc4_cipher2_str)
+    rc4_plaintext2_str = safe_decode(rc4_plaintext2)
+    save_as_pdf("rc4_decryption_f2.pdf", rc4_plaintext2_str)
 
     # Encrypt using RC4-AES combination
     rc4_aes_cipher1 = combined_rc4_aes_encrypt(file1, rc4_key, aes_key)
